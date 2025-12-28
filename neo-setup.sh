@@ -16,6 +16,7 @@ function yes_or_no_mintty {
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
   DISTRO=$(cat /etc/os-release | grep -Po "(?<=^ID=).*")
   echo $DISTRO
+
   
 # Windows detection 
 elif [[ "$OSTYPE" == "cygwin" ]]; then
@@ -67,8 +68,9 @@ elif [[ "$OSTYPE" == "cygwin" ]]; then
                           # Single quotes [''] make it a string litteral on the outsides and the double quotes [""] allow for variable expansion.
                           echo 'export PATH="$PATH:/c/Users/'"$USER"'/.cargo/bin"' >> ~/.bashrc
                           echo "############# DONE #######################"
+                          printf "'tree-sitter --version' \n --above command should run \n"
                           echo "You should see icons inside of NVIM when you open neo-tree"
-                          echo "FINSISHED SUCCESSFULLY!\nType NVIM to start and expect Lazy to show and install packages."
+                          echo "FINSISHED SUCCESSFULLY! \n Type NVIM to start and expect Lazy to show and install packages."
                           echo "Now close this windows and reopen mintty to see Font changes too. FINISHED SCRIPT."
                         else 
                           echo "Failed to install treesitter-cli from cargo."
