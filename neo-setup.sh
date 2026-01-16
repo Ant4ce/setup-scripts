@@ -16,7 +16,62 @@ function yes_or_no_mintty {
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
   DISTRO=$(cat /etc/os-release | grep -Po "(?<=^ID=).*")
   echo $DISTRO
+  
+  if [[ "$DISTRO" == "ubuntu" ]]; then 
+    if apt update && apt upgrade -y ; then 
+      if apt install git curl -y ; then 
+        echo "Succesfully installed git, curl and updated the system. CONTINUING..."
+        
+        echo "Installing neovim with curl..."
+        if curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz ; then 
+          echo "Ensuring no existing Neovim installation, if so removing."
+          sudo rm -rf /opt/nvim-linux-x86_64
+          echo "Unpacking tarball."
+          sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz
+          echo "Unpacked tarbal into /opt"
+          echo "Exporting PATH to include nvim binary and adding it to .bashrc config."
+          export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
+          echo 'export PATH="$PATH:/opt/nvim-linux-x86_64/bin"' >> ~/.bashrc
+          echo "Installing New FONT. CONTINUING..."
+          if curl -L -o "/home/$USER/Downloads/AudioLinkFont.zip" https://audiolink.dev/gallery/AudioLinkMono.zip ; then
+            if unzip ~/Downloads/AudioLinkFont.zip -d ~/.local/share/fonts ; then 
+              if fc-cache -fv ; then
+                echo "Succesfully Installed Audio-Link Font and updated the font-cache. CONTINUING..."
+                echo "REMOVING temp files from download folder..."
+                if rm ~/Downloads/AudioLinkFont.zip ; then
+                  echo "DONE removing temp files from download folder."
 
+                  echo "Setting AudioLink Mono as the font for the bash terminal."
+
+                  #TODO set a command to set the terminal font of the GNOME terminal in ubuntu.
+
+                    if git clone https://github.com/Ant4ce/files-neo-setup.git ~/.config/nvim/ ; then 
+                      echo "Successfully installed neovim config files. CONTINUING..."
+                    else
+                      echo "Failed to clone neo-config repo. STOPPING."
+                    fi
+
+                else
+                  echo "Failed to remove temp files from Downloads. STOPPING."
+                fi
+              else 
+                echo "Failed to update font cache. STOPPING."
+              fi
+            else 
+              echo "Failed to unzip files into ~/.local/share/fonts directory."
+            fi
+          else
+            echo "Failed to download Audio-link font with CURL. STOPPING."
+          fi
+        else
+          echo "Failed to install neovim. STOPPING."
+        fi
+      else 
+        echo "Failed to install git & curl. STOPPINGudo "
+      fi
+    else 
+      echo "Failed to do system update && upgrade. STOPPING."
+    fi
   
 # Windows detection 
 elif [[ "$OSTYPE" == "cygwin" ]]; then
