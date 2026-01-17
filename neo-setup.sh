@@ -33,6 +33,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
           export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
           echo 'export PATH="$PATH:/opt/nvim-linux-x86_64/bin"' >> ~/.bashrc
           echo "Installing New FONT. CONTINUING..."
+          # TODO replace this with cloning from git repo for modified AudioLink font to include the glyphs.
           if curl -L -o "/home/$USER/Downloads/AudioLinkFont.zip" https://audiolink.dev/gallery/AudioLinkMono.zip ; then
             if unzip ~/Downloads/AudioLinkFont.zip -d ~/.local/share/fonts ; then 
               if fc-cache -fv ; then
@@ -43,13 +44,36 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
                   echo "Setting AudioLink Mono as the font for the bash terminal."
 
-                  #TODO set a command to set the terminal font of the GNOME terminal in ubuntu.
+                  # Gets the profile number of the GNOME-terminal, so that I can change the values later.
+                  export TEMP_VAR=$(gsettings get org.gnome.Terminal.ProfilesList default | tr -d \')
+                  # Sets the font for the GNOME terminal in Ubuntu, tested on 24.04LTS.
+                  gsettings set "org.gnome.Terminal.Legacy.Profile:/org/gnome/terminal/legacy/profiles:/:$TEMP_VAR/" font "AudioLink Mono 14"
+                  echo "SUCCESSFULLY SET the font of the terminal. CONTINUING..."
 
-                    if git clone https://github.com/Ant4ce/files-neo-setup.git ~/.config/nvim/ ; then 
-                      echo "Successfully installed neovim config files. CONTINUING..."
+                  if git clone https://github.com/Ant4ce/files-neo-setup.git ~/.config/nvim/ ; then 
+                    echo "Successfully installed neovim config files. CONTINUING..."
+                    if curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ; then
+                      echo "Installed Rust. CONTINUING..."
+                      echo "Installing C compiler and libraries including LLVM for rust treesitter-cli installation..."
+                      if apt install -y clang libclang-dev llvm pkg-config ; then 
+                        echo "Successfully Installed clang and other libraries, CONTINUING..."
+                        echo "Installing treesitter-cli... Required for nvim-treesitter..."
+                        if cargo install --locked tree-sitter-cli ; then 
+                          echo "SUCCESSFULLY Installed tree-sitter-cli. CONTINUING..."
+                          # TODO Patch the font with nerd fonts tool in order to add the glyphs to the AudioLink Mono font. 
+                          # Add it on a seperate github repo so that you can download it from there instead.
+                        else
+                          echo "Failed to install treesitter-cli. STOPPING."
+                        fi
+                      else 
+                        echo "Failed to install clang, libclang-dev, llvm, pkg-config. STOPPING."
+                      fi
                     else
-                      echo "Failed to clone neo-config repo. STOPPING."
+                      echo "Failed to install Rust. STOPPING."
                     fi
+                  else
+                    echo "Failed to clone neo-config repo. STOPPING."
+                  fi
 
                 else
                   echo "Failed to remove temp files from Downloads. STOPPING."
