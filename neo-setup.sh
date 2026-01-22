@@ -1,7 +1,7 @@
 #! /bin/bash
 
 #Function to check for right condition to run script in UCRT64 minty with admin priveleges. 
-function yes_or_no_mintty {
+function yes_or_no {
   while true; do
     read -p "$* [y/n]: " yn
     case $yn in 
@@ -15,53 +15,92 @@ function yes_or_no_mintty {
 # linux
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
   DISTRO=$(cat /etc/os-release | grep -Po "(?<=^ID=).*")
-  echo $DISTRO
-  
-  if [[ "$DISTRO" == "ubuntu" ]]; then 
-    if apt update && apt upgrade -y ; then 
-      if apt install git curl -y ; then 
-        echo "Succesfully installed git, curl and updated the system. CONTINUING..."
-        
-        echo "Installing neovim with curl..."
-        if curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz ; then 
-          echo "Ensuring no existing Neovim installation, if so removing."
-          sudo rm -rf /opt/nvim-linux-x86_64
-          echo "Unpacking tarball."
-          sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz
-          echo "Unpacked tarbal into /opt"
-          echo "Exporting PATH to include nvim binary and adding it to .bashrc config."
-          export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
-          echo 'export PATH="$PATH:/opt/nvim-linux-x86_64/bin"' >> ~/.bashrc
-          echo "Installing New FONT. CONTINUING..."
-          # TODO replace this with cloning from git repo for modified AudioLink font to include the glyphs.
-          if curl -L -o "/home/$USER/Downloads/AudioLinkFont.zip" https://audiolink.dev/gallery/AudioLinkMono.zip ; then
-            if unzip ~/Downloads/AudioLinkFont.zip -d ~/.local/share/fonts ; then 
-              if fc-cache -fv ; then
-                echo "Succesfully Installed Audio-Link Font and updated the font-cache. CONTINUING..."
-                echo "REMOVING temp files from download folder..."
-                if rm ~/Downloads/AudioLinkFont.zip ; then
-                  echo "DONE removing temp files from download folder."
 
-                  echo "Setting AudioLink Mono as the font for the bash terminal."
+  if [[ "$DISTRO" == "ubuntu" ]]; then 
+    echo "DISTRO: $DISTRO"
+    echo "Are you running it with: 'sudo -E ./<SCRIPT_NAME>' ????"
+    yes_or_no "Script REQUIRES SUDO permissions & env variables... Are you running it as above?"
+    RESULT=$?
+    if [ $RESULT -eq 0 ]; then 
+      REG_USER=$(echo $SUDO_USER)
+      echo "Regular username is: $REG_USER"
+      REG_HOME="/home/$REG_USER"
+      echo "User home directory is: $REG_HOME"
+      yes_or_no "Proceed with these settings?"
+      RESULT2=$?
+      if [ $RESULT2 -eq 0 ] ; then 
+        if apt update && apt upgrade -y ; then 
+          if apt install git curl -y ; then 
+            echo "Succesfully installed git, curl and updated the system. CONTINUING..."
+            echo "Installing neovim with curl..."
+            if cd $REG_HOME && { sudo -u $REG_USER -E curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz ;}; then 
+              echo "Ensuring no existing Neovim installation, if so removing."
+              rm -rf /opt/nvim-linux-x86_64
+              echo "Unpacking tarball..."
+              tar -C /opt -xzf $REG_HOME/nvim-linux-x86_64.tar.gz
+              echo "Unpacked tarbal into /opt"
+              echo "Exporting PATH to include nvim binary and adding it to .bashrc config."
+              export PATH="$PATH:/opt/nvim-linux-x86_64/bin/"
+              sudo -u $REG_USER -E echo 'export PATH="$PATH:/opt/nvim-linux-x86_64/bin/"' >> $REG_HOME/.bashrc
+              echo "Installing Modified AudioLink Mono FONT..."
+              # OLD way of installing the font directly from their website, but it had not glyphs so it wasn't a nerd font.
+              # if curl -L -o "/home/$USER/Downloads/AudioLinkFont.zip" https://audiolink.dev/gallery/AudioLinkMono.zip ; then
+              #   if unzip ~/Downloads/AudioLinkFont.zip -d ~/.local/share/fonts ; then 
+              #   if rm ~/Downloads/AudioLinkFont.zip ; then
+              #     else
+              #       echo "Failed to remove temp files from Downloads. STOPPING."
+              #   fi
+              #   else 
+              #     echo "Failed to unzip files into ~/.local/share/fonts directory."
+              #   fi
+              # else
+              #   echo "Failed to download Audio-link font with CURL. STOPPING."
+              # fi:
+              if sudo -u $REG_USER git clone https://github.com/Ant4ce/ALAsNerdFont.git  $REG_HOME/.local/share/fonts/ ; then 
+                if sudo -u $REG_USER -E fc-cache -fv ; then
+                  echo "Succesfully Installed Modified Audio-Link Font and updated the font-cache. CONTINUING..."
+                  echo "Setting new font as gnome-terminal default..."
 
                   # Gets the profile number of the GNOME-terminal, so that I can change the values later.
-                  export TEMP_VAR=$(gsettings get org.gnome.Terminal.ProfilesList default | tr -d \')
+                  TEMP_VAR=$(gsettings get org.gnome.Terminal.ProfilesList default | tr -d \')
                   # Sets the font for the GNOME terminal in Ubuntu, tested on 24.04LTS.
-                  gsettings set "org.gnome.Terminal.Legacy.Profile:/org/gnome/terminal/legacy/profiles:/:$TEMP_VAR/" font "AudioLink Mono 14"
-                  echo "SUCCESSFULLY SET the font of the terminal. CONTINUING..."
+                  # OLD basic font without the nerd font glyphs.
+                  #gsettings set "org.gnome.Terminal.Legacy.Profile:/org/gnome/terminal/legacy/profiles:/:$TEMP_VAR/" font "AudioLink Mono 14"
 
-                  if git clone https://github.com/Ant4ce/files-neo-setup.git ~/.config/nvim/ ; then 
+                  # This command does require it to be run as the regular user as running with root will result in failure to commit changes with dconf.
+                  # The reason it doesn't work with sudo/root is because the "dconf" command which gsettings uses here needs to know the D-Bus the user uses
+                  # which is stored in $DBUS_SESSION_BUS_ADDRESS and this is not set in the sude environment we run the script with so we have to change to the 
+                  # regular user.
+                  sudo -u $REG_USER -E gsettings set "org.gnome.Terminal.Legacy.Profile:/org/gnome/terminal/legacy/profiles:/:$TEMP_VAR/" font "AudioLinkMono Nerd Font Mono 14"
+                  # This is to allow the system to use the configured font and not the default. 
+                  sudo -u $REG_USER -E gsettings set "org.gnome.Terminal.Legacy.Profile:/org/gnome/terminal/legacy/profiles:/:$TEMP_VAR/" use-system-font false
+
+                  echo "SUCCESSFULLY SET the font of the terminal. CONTINUING..."
+                  echo "You will need to RESTART the machine to see proper changes to font applied. CONTINUING..."
+
+                  if sudo -u $REG_USER git clone https://github.com/Ant4ce/files-neo-setup.git $REG_HOME/.config/nvim/ ; then 
                     echo "Successfully installed neovim config files. CONTINUING..."
-                    if curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ; then
+                    echo "Installing Rust..."
+                    # This command doesn't work without running the "sh" command at the end with "sudo -u $REG_USER". This is because 
+                    # it will default back to running the "sh" shell command as the root user since this script is run with sudo. 
+                    # Also note that sh in ubuntu/debian is a symlink to run with "dash" which is a faster superset implementation of sh. 
+                    if sudo -u $REG_USER -E curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sudo -u $REG_USER -E sh -s -- -y ; then
                       echo "Installed Rust. CONTINUING..."
+                      # Can't seem to get this to be recognized by the below command to use cargo to install tree-sitter-cli. So removed. 
+                      # export PATH="$PATH:$REG_HOME/.cargo/bin"
                       echo "Installing C compiler and libraries including LLVM for rust treesitter-cli installation..."
                       if apt install -y clang libclang-dev llvm pkg-config ; then 
                         echo "Successfully Installed clang and other libraries, CONTINUING..."
                         echo "Installing treesitter-cli... Required for nvim-treesitter..."
-                        if cargo install --locked tree-sitter-cli ; then 
+                        # Normally would be able to invoke cargo normally but apparently "sudo -E" in this case can't preserve the $PATH variable.
+                        # It seems that the environment variables get's sanitized in this case. As a fix will call cargo directly from it's binary location.
+                        # NOTE ALTERNATIVE:
+                        # One other way to get around this is to run the following line with "env" to explicitely pass PATH to the next command:
+                        # sudo -u $REG_USER -E env PATH="$PATH:$REG_HOME/.cargo/bin" cargo install --locked tree-sitter-cli
+                        if sudo -u $REG_USER -E $REG_HOME/.cargo/bin/cargo install --locked tree-sitter-cli ; then 
                           echo "SUCCESSFULLY Installed tree-sitter-cli. CONTINUING..."
-                          # TODO Patch the font with nerd fonts tool in order to add the glyphs to the AudioLink Mono font. 
-                          # Add it on a seperate github repo so that you can download it from there instead.
+                          echo "To complete the installation REBOOT..."
+                          echo "############### Finished the script. DONE. ######################"
                         else
                           echo "Failed to install treesitter-cli. STOPPING."
                         fi
@@ -74,34 +113,47 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
                   else
                     echo "Failed to clone neo-config repo. STOPPING."
                   fi
-
-                else
-                  echo "Failed to remove temp files from Downloads. STOPPING."
+                else 
+                  echo "Failed to update font cache. STOPPING."
                 fi
               else 
-                echo "Failed to update font cache. STOPPING."
+                echo "Failed to clone Nerd Font from git repo. STOPPING."
               fi
-            else 
-              echo "Failed to unzip files into ~/.local/share/fonts directory."
+            else
+              echo "Failed to install neovim. STOPPING."
             fi
-          else
-            echo "Failed to download Audio-link font with CURL. STOPPING."
+          else 
+            echo "Failed to install git & curl. STOPPING "
           fi
-        else
-          echo "Failed to install neovim. STOPPING."
+        else 
+          echo "Failed to do system update && upgrade. STOPPING."
         fi
-      else 
-        echo "Failed to install git & curl. STOPPINGudo "
+      else
+        echo "User cancelled installation. STOPPING. DONE."
       fi
     else 
-      echo "Failed to do system update && upgrade. STOPPING."
+      echo "Re-run script with sudo permissions. STOPPING."
     fi
+  elif [[ "$DISTRO" == "arch" ]] ; then
+    echo "$DISTRO is the DISTRO."
+
+    yes_or_no "OS_TYPE: $DISTRO \n Script requires SUDO permissions... Are you running it with sudo? [y/n]"
+    RESULT=$?
+    if [ $RESULT -eq 0 ]; then 
+      echo "Starting script..."
+
+    else 
+      echo "Re-run script with sudo permissions. STOPPING."
+    fi
+  else 
+    echo "Not a recognized Linux distro, currently only supports Arch & Ubuntu. STOPPING."
+  fi
   
 # Windows detection 
 elif [[ "$OSTYPE" == "cygwin" ]]; then
   echo "$OSTYPE is a Windows ENV"
 
-  yes_or_no_mintty "Are you running MSYS2 UCRT64 mintty shell as administrator? [y/n]"
+  yes_or_no "Are you running MSYS2 UCRT64 mintty shell as administrator? [y/n]"
   RESULT=$?
   if [ $RESULT -eq 0 ]; then 
     #Install neovim
