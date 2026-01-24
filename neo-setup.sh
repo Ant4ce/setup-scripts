@@ -137,18 +137,150 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
   elif [[ "$DISTRO" == "arch" ]] ; then
     echo "$DISTRO is the DISTRO."
 
+
+    echo "This script expects to be run on KDE plasma on arch linux. If not say no to next prompt!"
     yes_or_no "OS_TYPE: $DISTRO \n Script requires SUDO permissions... Are you running it with sudo? [y/n]"
     RESULT=$?
     if [ $RESULT -eq 0 ]; then 
       echo "Starting script..."
+      REG_USER="$SUDO_USER"
+      REG_HOME="$SUDO_HOME"
+      # Have to check what version of kwriteconfig is used as this changes with plasma over time.
+      K_VERSION=0
 
+      # Check for version happens here.
+      if command -v kwriteconfig5 ; then
+        echo "Found kwriteconfig5 setting it."
+        K_VERSION=5
+        sleep 1
+      else
+        echo "Didn't find kwriteconfig5, checking for version 6..."
+        if command -v kwriteconfig6 ; then
+          echo "Found version 6, setting it."
+          K_VERSION=6
+          sleep 1
+        else 
+          echo "Don't have either kwriteconfig5 or 6, installing kconfig package..."
+          if pacman -S kconfig ; then
+            echo "Successfully installed kconfig package."
+            echo "Continuing..."
+            sleep 2
+            K_VERSION=$(pacman -Qi kconfig | grep -i version | grep -oP '[[:digit:]]+' | head -n1)
+            echo "New stored version of kwriteconfig: $K_VERSION"
+            sleep 2
+          else 
+            echo "Failed to install kconfig package, check what is wrong."
+            echo "ERROR."
+            exit 1
+          fi
+        fi
+      fi
+      # end of checking for version.
+      if pacman -Syu --noconfirm ; then 
+        echo "Installing extra packages..."
+        if pacman -S --noconfirm git curl rust tree-sitter-cli neovim wl-clipboard ; then
+          echo "Succesfully installed extra packages. CONTINUING..."
+
+          if sudo -u $REG_USER mkdir $REG_HOME/.local/share/fonts ; then 
+            echo "Created fonts folder. CONTINUING..."
+
+            if sudo -u $REG_USER git clone https://github.com/Ant4ce/ALAsNerdFont.git  $REG_HOME/.local/share/fonts/ ; then 
+              if sudo -u $REG_USER fc-cache -fv ; then 
+                echo "Succesfully installed Audio-Link Nerd Font. CONTINUING..."
+                echo "Setting new font as Konsole default."
+                # The indentation here is weird on purpose, has to do with the way bash expect's the EOF statement.
+                # It expects at the beginning of the line. 
+                sudo -u $REG_USER install -D /dev/stdin $REG_HOME/.local/share/konsole/mynerd.profile <<EOF
+[General]
+Name=Ant4ceNerd
+Command=/bin/bash
+
+[Appearance]
+EOF
+                echo "Succesfully created profile config file for konsole."
+                echo "Editing it with kwriteconfig$K_VERSION..."
+                # these last 2 if statements are just to configure the Konsole terminal, which is under KDE plasma
+                # which uses this "kwriteconfig" tool for this task.
+                if [ $K_VERSION -eq 0 ] ; then 
+                  echo "K_VERSION was not changed from 0, STOPPING."
+                  echo "K_VERSION CHECK - FAILED."
+                  exit 1
+                else 
+                  echo "K_VERSION CHECK - GOOD."
+                  sleep 1
+                fi
+                # tried to make this 1 command but can only reliably set one Key per kwriteconfig command.
+                if sudo -u $REG_USER kwriteconfig$K_VERSION \
+                  --file $REG_HOME/.local/share/konsole/mynerd.profile \
+                  --group General \
+                  --key Name "Ant4ceNerd" ; then
+                  echo "Success. CONTINUING..."
+                else 
+                  echo "Failed to set Name in [General]. STOPPING."
+                  exit 1
+                fi
+                if sudo -u $REG_USER kwriteconfig$K_VERSION \
+                  --file $REG_HOME/.local/share/konsole/mynerd.profile \
+                  --group General \
+                  --key Command "/bin/bash" ; then
+                  echo "Success. CONTINUING..."
+                else 
+                  echo "Failed to set Command /bin/bash in [General]. STOPPING."
+                  exit 1
+                fi
+                if sudo -u $REG_USER kwriteconfig$K_VERSION \
+                  --file $REG_HOME/.local/share/konsole/mynerd.profile \
+                  --group Appearance \
+                  --key Font \
+                  "AudioLinkMono Nerd Font Mono,12,-1,5,50,0,0,0,0,0" ; then 
+                  echo "Changed config. Now trying to set it to default..."
+                  if sudo -u $REG_USER kwriteconfig$K_VERSION \
+                    --file $REG_HOME/.config/konsolerc \
+                    --group "Desktop Entry" \
+                    --key DefaultProfile \
+                    "mynerd.profile" ; then
+                    echo "Successfully set new profile as default for the Konsole. DONE"
+                    echo "you should restart the Konsole to see the changes."
+                    echo "Getting ready to install my neovim configs..."
+                    echo "Making directory"
+                    sleep 2
+                    sudo -u $REG_USER mkdir -p $REG_HOME/.config/nvim/ 
+                    if sudo -u $REG_USER git clone https://github.com/Ant4ce/files-neo-setup.git $REG_HOME/.config/nvim/ ; then 
+                      echo "Succesfully cloned Neovim config files. DONE."
+                      echo "SUCCESSFULLY FINISHED setting up the konsole."
+                      echo "Restart the Terminal/Konsole to see changes in font."
+                      echo "##############SCRIPT FINISHED SUCCESFULLY#############"
+                    else
+                      echo "Failed to install neovim config files into $REG_HOME/.config/nvim/"
+                    fi
+                  else
+                    echo "Failed to set config to new default. STOPPING."
+                  fi
+                else 
+                  echo "Failed to change config with kwriteconfig. STOPPING."
+                fi
+              else 
+                echo "Failed to update the nerd fonts with fc-cache. STOPPING."
+              fi
+            else
+              echo "Failed to clone Audio-link nerd font into $REG_HOME/.local/share/fonts, STOPPING."
+            fi
+          else 
+            echo "Failed to create Fonts folder under $REG_HOME/.local/share/. STOPPING."
+          fi
+        else
+          echo "Failed to install packages."
+        fi
+      else
+        echo "Failed to update system. STOPPING."
+      fi
     else 
       echo "Re-run script with sudo permissions. STOPPING."
     fi
   else 
     echo "Not a recognized Linux distro, currently only supports Arch & Ubuntu. STOPPING."
   fi
-  
+
 # Windows detection 
 elif [[ "$OSTYPE" == "cygwin" ]]; then
   echo "$OSTYPE is a Windows ENV"
