@@ -125,7 +125,7 @@ case $OSTYPE in
           # Can't seem to get this to be recognized by the below command to use cargo to install tree-sitter-cli. So removed. 
           # export PATH="$PATH:$REG_HOME/.cargo/bin"
           echo "Installing C compiler and libraries including LLVM for rust treesitter-cli installation..."
-          if ! apt install -y clang libclang-dev llvm pkg-config ; then 
+          if ! apt install -y clang libclang-dev llvm pkg-config npm ; then 
             echo "Failed to install clang, libclang-dev, llvm, pkg-config. STOPPING."
             exit 1
           fi
@@ -199,7 +199,7 @@ case $OSTYPE in
         fi 
         echo "Installed Rust. CONTINUING..."
         echo "Installing extra packages..."
-        if ! pacman -S --noconfirm git curl tree-sitter-cli neovim wl-clipboard ; then
+        if ! pacman -S --noconfirm git curl tree-sitter-cli neovim wl-clipboard unzip npm ; then
           echo "Failed to install packages."
           exit 1
         fi
