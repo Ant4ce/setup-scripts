@@ -193,8 +193,13 @@ case $OSTYPE in
           echo "Failed to update system. STOPPING."
           exit 1
         fi
+        if ! (sudo -u $REG_USER -E curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sudo -u $REG_USER sh -s -- -y) ; then
+            echo "Failed to install Rust. STOPPING."
+            exit 1
+        fi 
+        echo "Installed Rust. CONTINUING..."
         echo "Installing extra packages..."
-        if ! pacman -S --noconfirm git curl rust tree-sitter-cli neovim wl-clipboard ; then
+        if ! pacman -S --noconfirm git curl tree-sitter-cli neovim wl-clipboard ; then
           echo "Failed to install packages."
           exit 1
         fi
